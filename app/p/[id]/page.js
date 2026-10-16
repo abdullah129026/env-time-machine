@@ -3,14 +3,17 @@ import { isConfigured, serviceClient } from '@/lib/supabase'
 import { serverClient } from '@/lib/supabase-server'
 import { requireMembership, MembershipError } from '@/lib/membership'
 import { getCurrentState, maskState } from '@/lib/env'
-import SecretsView from './secrets-view'
+import ProjectView from './project-view'
 
 const ENVS = ['dev', 'staging', 'prod']
+const TABS = ['secrets', 'history', 'settings']
 
 export default async function ProjectPage({ params, searchParams }) {
   const { id } = await params
   const sp = await searchParams
   const env = ENVS.includes(sp?.env) ? sp.env : 'dev'
+  const tab = TABS.includes(sp?.tab) ? sp.tab : 'secrets'
+  const keyFilter = typeof sp?.key === 'string' ? sp.key : ''
 
   if (!isConfigured()) {
     return (
@@ -33,8 +36,18 @@ export default async function ProjectPage({ params, searchParams }) {
     throw e
   }
 
-  const { data: project } = await svc.from('projects').select('id, name').eq('id', id).single()
+  const { data: project } = await svc
+    .from('projects')
+    .select('id, name, deploy_target')
+    .eq('id', id)
+    .single()
   if (!project) notFound()
+
+  const { data: environments } = await svc
+    .from('environments')
+    .select('name, version_seq')
+    .eq('project_id', id)
+  const headSeq = environments?.find((e) => e.name === env)?.version_seq ?? 0
 
   // current state, masked server-side; plaintext never reaches the page
   const state = await getCurrentState(svc, id, env)
@@ -48,19 +61,15 @@ export default async function ProjectPage({ params, searchParams }) {
         </div>
       </div>
 
-      <div className="env-bar">
-        {ENVS.map((e) => (
-          <a
-            key={e}
-            href={`/p/${id}?env=${e}`}
-            className={`env-tab${e === env ? ' active' : ''}${e === 'prod' ? ' prod' : ''}`}
-          >
-            {e}
-          </a>
-        ))}
-      </div>
-
-      <SecretsView projectId={id} env={env} initialEntries={maskState(state)} />
+      <ProjectView
+        projectId={id}
+        env={env}
+        tab={tab}
+        keyFilter={keyFilter}
+        initialHeadSeq={headSeq}
+        deployTarget={project.deploy_target ?? 'none'}
+        initialEntries={maskState(state)}
+      />
     </>
   )
 }

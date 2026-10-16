@@ -1,22 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-
-function Dialog({ title, onClose, children }) {
-  return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className="dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
-        <div className="dialog-head">
-          <h2>{title}</h2>
-          <button className="btn btn-ghost btn-sm" type="button" onClick={onClose}>
-            Close
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
+import { useEffect, useMemo, useState } from 'react'
+import { Dialog, ConfirmChanges, Toast } from './ui'
 
 // Add and edit share one dialog. Values are multiline (private keys, certs).
 // Renames are stated plainly: a rename is delete plus add, and the key's
@@ -74,13 +59,15 @@ function VarDialog({ initialKey, onSave, onClose, busy }) {
 
 // Import: paste a .env, preview the diff, then apply selected keys or all.
 // Replace semantics: keys absent from the paste are marked deleted, and the
-// preview says so. Nothing is written until Apply.
-function ImportPanel({ projectId, env, onDone }) {
+// preview says so. Nothing is written until Apply. Production applies go
+// through the confirm dialog first.
+function ImportPanel({ projectId, env, onApplied }) {
   const [text, setText] = useState('')
   const [preview, setPreview] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [confirming, setConfirming] = useState(null) // {mode} | null
 
   async function runPreview() {
     setBusy(true)
@@ -102,18 +89,27 @@ function ImportPanel({ projectId, env, onDone }) {
     }
   }
 
-  async function apply(mode) {
+  async function apply(mode, confirmed = false) {
+    if (env === 'prod' && !confirmed) {
+      setConfirming({ mode })
+      return
+    }
     setBusy(true)
     setError('')
     try {
       const res = await fetch(`/api/projects/${projectId}/env/${env}/import`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text, apply: mode === 'all' ? 'all' : [...selected] }),
+        body: JSON.stringify({
+          text,
+          apply: mode === 'all' ? 'all' : [...selected],
+          confirmed: true,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'import failed')
-      onDone()
+      setConfirming(null)
+      onApplied(`Imported ${mode === 'all' ? 'all keys' : `${selected.size} keys`}`)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -245,17 +241,46 @@ function ImportPanel({ projectId, env, onDone }) {
           </div>
         </div>
       )}
+
+      {confirming && (
+        <ConfirmChanges
+          title={`Apply import to production?`}
+          changes={{
+            added: preview.diff.added
+              .filter((e) => confirming.mode === 'all' || selected.has(e.key))
+              .map((e) => e.key),
+            updated: preview.diff.updated
+              .filter((e) => confirming.mode === 'all' || selected.has(e.key))
+              .map((e) => e.key),
+            deleted: preview.diff.deleted.map((e) => e.key),
+          }}
+          note="Replace semantics: keys absent from the paste are marked deleted. Production values pin at build time; a redeploy banner appears after this change."
+          confirmLabel="Apply import"
+          busy={busy}
+          error={error}
+          onConfirm={() => apply(confirming.mode, true)}
+          onClose={() => setConfirming(null)}
+        />
+      )}
     </div>
   )
 }
 
-export default function SecretsView({ projectId, env, initialEntries }) {
+export default function SecretsView({ projectId, env, initialEntries, onMutated }) {
   const [entries, setEntries] = useState(initialEntries)
   const [query, setQuery] = useState('')
   const [sortAsc, setSortAsc] = useState(true)
   const [dialog, setDialog] = useState(null) // 'add' | 'edit:<key>' | 'import'
+  const [confirm, setConfirm] = useState(null) // prod confirm {title, changes, note, confirmLabel, onConfirm}
+  const [toast, setToast] = useState(null) // dev/staging undo {label, undo}
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 10000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   async function reload() {
     const res = await fetch(`/api/projects/${projectId}/env/${env}`)
@@ -272,19 +297,91 @@ export default function SecretsView({ projectId, env, initialEntries }) {
     return list
   }, [entries, query, sortAsc])
 
-  async function saveVar(key, value, isDelete = false) {
+  async function saveVar(key, value, isDelete = false, confirmed = false) {
+    // prod writes go through the confirm dialog first; the server enforces
+    // the same gate, so a skipped dialog can never write
+    if (env === 'prod' && !confirmed) {
+      const exists = entries.some((e) => e.key === key)
+      const changes = isDelete
+        ? { added: [], updated: [], deleted: [key] }
+        : exists
+          ? { added: [], updated: [key], deleted: [] }
+          : { added: [key], updated: [], deleted: [] }
+      setConfirm({
+        title: isDelete ? `Delete ${key} in production?` : exists ? `Update ${key} in production?` : `Add ${key} to production?`,
+        changes,
+        note: 'Production values pin at build time. A redeploy banner appears after this change.',
+        confirmLabel: isDelete ? 'Delete' : 'Save',
+        onConfirm: () => {
+          setConfirm(null)
+          saveVar(key, value, isDelete, true)
+        },
+      })
+      return
+    }
     setBusy(true)
     setError('')
     try {
       const res = await fetch(`/api/projects/${projectId}/env/${env}/vars`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(isDelete ? { key, deleted: true } : { key, value }),
+        body: JSON.stringify(
+          isDelete ? { key, deleted: true, confirmed: true } : { key, value, confirmed: true }
+        ),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'save failed')
       setDialog(null)
+      await afterWrite(isDelete ? `Deleted ${key}` : existsLabel(key))
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function existsLabel(key) {
+    return entries.some((e) => e.key === key) ? `Updated ${key}` : `Added ${key}`
+  }
+
+  // the version just before this write, for the undo toast
+  async function undoInfo() {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/env/${env}/history`)
+      if (!res.ok) return null
+      const data = await res.json()
+      const vs = data.versions ?? []
+      if (vs.length < 2) return null
+      return { targetVersionId: vs[1].id, headSeq: vs[0].seq }
+    } catch {
+      return null
+    }
+  }
+
+  async function afterWrite(label) {
+    await reload()
+    onMutated?.()
+    if (env === 'prod') return // no toast on prod
+    const info = await undoInfo()
+    setToast(info ? { label, undo: info } : { label })
+  }
+
+  async function undoToast() {
+    const u = toast?.undo
+    setToast(null)
+    if (!u) return
+    setBusy(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/projects/${projectId}/env/${env}/rollback`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ targetVersionId: u.targetVersionId, headSeq: u.headSeq, confirmed: false }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'undo failed')
       await reload()
+      onMutated?.()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -303,7 +400,7 @@ export default function SecretsView({ projectId, env, initialEntries }) {
           <h2>No variables in {env} yet</h2>
           <p>Paste a .env file to seed this environment, or add your first variable.</p>
           <div className="card" style={{ textAlign: 'left', marginTop: 16 }}>
-            <ImportPanel projectId={projectId} env={env} onDone={reload} />
+            <ImportPanel projectId={projectId} env={env} onApplied={afterWrite} />
           </div>
           <div className="empty-actions">
             <button className="btn btn-ghost" type="button" onClick={() => setDialog('add')}>
@@ -347,7 +444,15 @@ export default function SecretsView({ projectId, env, initialEntries }) {
             <tbody>
               {visible.map((e) => (
                 <tr key={e.key}>
-                  <td className="mono">{e.key}</td>
+                  <td>
+                    <a
+                      className="mono key-link"
+                      href={`/p/${projectId}?env=${env}&tab=history&key=${encodeURIComponent(e.key)}`}
+                      title="Show change timeline"
+                    >
+                      {e.key}
+                    </a>
+                  </td>
                   <td className="mono dim">{e.value}</td>
                   <td className="tbl-actions">
                     <button
@@ -390,12 +495,28 @@ export default function SecretsView({ projectId, env, initialEntries }) {
           <ImportPanel
             projectId={projectId}
             env={env}
-            onDone={async () => {
+            onApplied={async (label) => {
               setDialog(null)
-              await reload()
+              await afterWrite(label)
             }}
           />
         </Dialog>
+      )}
+
+      {confirm && (
+        <ConfirmChanges
+          title={confirm.title}
+          changes={confirm.changes}
+          note={confirm.note}
+          confirmLabel={confirm.confirmLabel}
+          busy={busy}
+          onConfirm={confirm.onConfirm}
+          onClose={() => setConfirm(null)}
+        />
+      )}
+
+      {toast && (
+        <Toast label={toast.label} onUndo={toast.undo ? undoToast : null} onDismiss={() => setToast(null)} />
       )}
     </>
   )

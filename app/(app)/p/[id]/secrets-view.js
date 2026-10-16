@@ -274,7 +274,31 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
   const [confirm, setConfirm] = useState(null) // prod confirm {title, changes, note, confirmLabel, onConfirm}
   const [toast, setToast] = useState(null) // dev/staging undo {label, undo}
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [updatedAt, setUpdatedAt] = useState({}) // key -> ISO timestamp of last change
+
+  // Last-change timestamps come from the version history; no extra API
+  // surface needed. One fetch per mount is enough for a table view.
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/projects/${projectId}/env/${env}/history`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d) return
+        const map = {}
+        for (const v of d.versions ?? []) {
+          for (const c of v.diff ?? []) {
+            if (!(c.key in map)) map[c.key] = v.created_at
+          }
+        }
+        setUpdatedAt(map)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [projectId, env])
 
   useEffect(() => {
     if (!toast) return
@@ -283,11 +307,25 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
   }, [toast])
 
   async function reload() {
-    const res = await fetch(`/api/projects/${projectId}/env/${env}`)
-    if (res.ok) {
-      const data = await res.json()
-      setEntries(data.entries ?? [])
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/env/${env}`)
+      if (res.ok) {
+        const data = await res.json()
+        setEntries(data.entries ?? [])
+      }
+    } finally {
+      setLoading(false)
     }
+  }
+
+  function relTime(iso) {
+    if (!iso) return '—'
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+    if (s < 60) return 'just now'
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+    return `${Math.floor(s / 86400)}d ago`
   }
 
   const visible = useMemo(() => {
@@ -397,6 +435,7 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
 
       {entries.length === 0 ? (
         <div className="empty">
+          <div className="empty-glyph" aria-hidden="true">+</div>
           <h2>No variables in {env} yet</h2>
           <p>Paste a .env file to seed this environment, or add your first variable.</p>
           <div className="card" style={{ textAlign: 'left', marginTop: 16 }}>
@@ -431,11 +470,34 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
             </button>
           </div>
 
+          {loading ? (
+            <table className="tbl" aria-label="Loading variables">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Value</th>
+                  <th>Updated</th>
+                  <th><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <tr key={i}>
+                    <td><div className="skel" style={{ height: 14, width: '60%' }} /></td>
+                    <td><div className="skel" style={{ height: 14, width: '40%' }} /></td>
+                    <td><div className="skel" style={{ height: 14, width: 60 }} /></td>
+                    <td />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
           <table className="tbl">
             <thead>
               <tr>
                 <th>Key</th>
                 <th>Value</th>
+                <th>Updated</th>
                 <th>
                   <span className="sr-only">Actions</span>
                 </th>
@@ -453,29 +515,35 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
                       {e.key}
                     </a>
                   </td>
-                  <td className="mono dim">{e.value}</td>
+                  <td className="mono"><span className="bullets">••••••••</span></td>
+                  <td className="dim num" title={updatedAt[e.key] ? new Date(updatedAt[e.key]).toLocaleString() : ''}>
+                    {relTime(updatedAt[e.key])}
+                  </td>
                   <td className="tbl-actions">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => setDialog(`edit:${e.key}`)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm btn-danger"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => saveVar(e.key, '', true)}
-                    >
-                      Delete
-                    </button>
+                    <span className="row-actions">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => setDialog(`edit:${e.key}`)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm btn-danger"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => saveVar(e.key, '', true)}
+                      >
+                        Delete
+                      </button>
+                    </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {visible.length === 0 && <p className="hint">No keys match the filter.</p>}
+          )}
+          {!loading && visible.length === 0 && <p className="hint">No keys match the filter.</p>}
         </>
       )}
 

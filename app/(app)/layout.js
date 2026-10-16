@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { isConfigured, serviceClient } from '@/lib/supabase'
 import { serverClient } from '@/lib/supabase-server'
 import { ProjectSwitcher, UserMenu } from '@/components/SidebarExtras'
@@ -48,7 +49,9 @@ export default async function AppLayout({ children }) {
         <UserMenu email={email} />
       </aside>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Topbar projects={projects} email={email} />
+        <Suspense>
+          <Topbar projects={projects} email={email} />
+        </Suspense>
         <main className="main">{children}</main>
       </div>
     </div>

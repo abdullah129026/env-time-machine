@@ -36,18 +36,6 @@ export default function ProjectView({ projectId, env, tab, keyFilter, initialHea
 
   return (
     <>
-      <div className="env-bar">
-        {ENVS.map((e) => (
-          <a
-            key={e}
-            href={tabQuery(tab, e)}
-            className={`env-tab${e === env ? ' active' : ''}${e === 'prod' ? ' prod' : ''}`}
-          >
-            {e}
-          </a>
-        ))}
-      </div>
-
       {env === 'prod' && (
         <div className="prod-strip">
           Production environment. Every write needs confirmation, and values pin at build

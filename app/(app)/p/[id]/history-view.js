@@ -159,8 +159,9 @@ export default function HistoryView({ projectId, env, initialKey, onMutated }) {
 
       {versions.length === 0 && !error ? (
         <div className="empty">
+          <div className="empty-glyph" aria-hidden="true">⟲</div>
           <h2>No changes yet</h2>
-          <p>Every edit creates a version here.</p>
+          <p>Edits you make will appear here as versions you can diff and roll back.</p>
         </div>
       ) : (
         versions.map((v) => (

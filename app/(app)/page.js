@@ -79,8 +79,9 @@ export default async function Home() {
 
       {(projects ?? []).length === 0 ? (
         <div className="empty">
+          <div className="empty-glyph" aria-hidden="true">∅</div>
           <h2>No projects yet</h2>
-          <p>Create your first project above to start versioning env vars.</p>
+          <p>Create your first project above. Import a .env file and see your first diff in under a minute.</p>
         </div>
       ) : (
         <div className="list">

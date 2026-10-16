@@ -1,0 +1,1 @@
+{"dependencies": {"@supabase/ssr": "^0.7.0", "@supabase/supabase-js": "^2.49.0", "next": "16.4.2", "react": "^19.2.0", "react-dom": "^19.2.0"}, "name": "env-time-machine", "private": true, "scripts": {"build": "next build", "dev": "next dev", "start": "next start", "test": "node --test \"test/*.test.js\""}, "type": "module", "version": "0.1.0"}

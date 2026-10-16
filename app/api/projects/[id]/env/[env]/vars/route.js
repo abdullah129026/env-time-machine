@@ -1,5 +1,5 @@
 import { gate, json, routeError } from '@/lib/guard'
-import { getCurrentState, writeVersion, keyNameError } from '@/lib/env'
+import { getCurrentState, writeVersion, keyNameError, requireProdConfirm } from '@/lib/env'
 
 export async function POST(request, { params }) {
   const { id, env } = await params
@@ -11,6 +11,13 @@ export async function POST(request, { params }) {
     body = await request.json()
   } catch {
     return json({ error: 'invalid JSON body' }, 400)
+  }
+
+  try {
+    // prod single writes need the confirm dialog to have run first
+    requireProdConfirm(env, body?.confirmed)
+  } catch (e) {
+    return routeError(e)
   }
 
   const keyErr = keyNameError(body?.key)

@@ -1,5 +1,5 @@
 import { gate, json, routeError } from '@/lib/guard'
-import { getCurrentState, maskState, writeVersion, replaceChanges, keyNameError } from '@/lib/env'
+import { getCurrentState, maskState, writeVersion, replaceChanges, keyNameError, requireProdConfirm } from '@/lib/env'
 
 export async function GET(_request, { params }) {
   const { id, env } = await params
@@ -28,6 +28,12 @@ export async function PUT(request, { params }) {
   const list = Array.isArray(body) ? body : body?.entries
   if (!Array.isArray(list)) {
     return json({ error: 'body must be an array of {key, value, deleted}' }, 400)
+  }
+
+  try {
+    requireProdConfirm(env, body?.confirmed)
+  } catch (e) {
+    return routeError(e)
   }
 
   const next = []

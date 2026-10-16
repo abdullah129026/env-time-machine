@@ -1,5 +1,5 @@
 import { gate, json, routeError } from '@/lib/guard'
-import { previewImport, applyImport, InputError } from '@/lib/env'
+import { previewImport, applyImport, InputError, requireProdConfirm } from '@/lib/env'
 
 export async function POST(request, { params }) {
   const { id, env } = await params
@@ -26,6 +26,7 @@ export async function POST(request, { params }) {
 
   // apply: replace semantics, one version, kind 'import'
   try {
+    requireProdConfirm(env, body?.confirmed)
     const versionId = await applyImport(g.svc, {
       projectId: id,
       envName: env,

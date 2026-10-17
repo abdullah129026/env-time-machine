@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConfirmChanges, Toast } from './ui'
 
 // Masked diff panel for one version: Added/Updated/Deleted badges with
@@ -39,12 +39,13 @@ function changesOf(diff) {
   return changes
 }
 
-export default function HistoryView({ projectId, env, initialKey, onMutated }) {
+export default function HistoryView({ projectId, env, initialKey, initialSeq, onMutated }) {
   const [versions, setVersions] = useState([])
   const [hasMore, setHasMore] = useState(false)
   const [search, setSearch] = useState('')
   const [keyFilter, setKeyFilter] = useState(initialKey ?? '')
   const [selectedId, setSelectedId] = useState(null)
+  const seqLink = useRef(initialSeq ?? null) // deep link from the activity log, consumed once
   const [confirmRb, setConfirmRb] = useState(null) // {version, headSeq, diff}
   const [rbBusy, setRbBusy] = useState(false)
   const [rbError, setRbError] = useState('')
@@ -60,8 +61,15 @@ export default function HistoryView({ projectId, env, initialKey, onMutated }) {
       const res = await fetch(`/api/projects/${projectId}/env/${env}/history?${sp}`)
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'could not load history')
-      setVersions(data.versions ?? [])
+      const vs = data.versions ?? []
+      setVersions(vs)
       setHasMore(!!data.hasMore)
+      // deep link from the activity log: expand the linked version once
+      if (seqLink.current != null) {
+        const target = vs.find((v) => v.seq === seqLink.current)
+        if (target) setSelectedId(target.id)
+        seqLink.current = null
+      }
     } catch (e) {
       setError(e.message)
     }

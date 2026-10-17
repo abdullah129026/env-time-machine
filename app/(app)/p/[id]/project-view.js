@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import SecretsView from './secrets-view'
 import HistoryView from './history-view'
+import ActivityView from './activity-view'
 import SettingsView from './settings-view'
 import RedeployBanner from './redeploy-banner'
 
@@ -10,13 +11,14 @@ const ENVS = ['dev', 'staging', 'prod']
 const TABS = [
   { id: 'secrets', label: 'Secrets' },
   { id: 'history', label: 'History' },
+  { id: 'activity', label: 'Activity' },
   { id: 'settings', label: 'Settings' },
 ]
 
 // Client half of the project view. Tabs are links (env is preserved across
 // them), headSeq is kept live so the redeploy banner reappears right after
 // a production write or rollback.
-export default function ProjectView({ projectId, env, tab, keyFilter, initialHeadSeq, deployTarget, initialEntries }) {
+export default function ProjectView({ projectId, env, tab, keyFilter, seqFilter, initialHeadSeq, deployTarget, initialEntries }) {
   const [headSeq, setHeadSeq] = useState(initialHeadSeq)
 
   const refreshHead = useCallback(async () => {
@@ -61,8 +63,9 @@ export default function ProjectView({ projectId, env, tab, keyFilter, initialHea
         <SecretsView projectId={projectId} env={env} initialEntries={initialEntries} onMutated={refreshHead} />
       )}
       {tab === 'history' && (
-        <HistoryView projectId={projectId} env={env} initialKey={keyFilter} onMutated={refreshHead} />
+        <HistoryView projectId={projectId} env={env} initialKey={keyFilter} initialSeq={seqFilter} onMutated={refreshHead} />
       )}
+      {tab === 'activity' && <ActivityView projectId={projectId} />}
       {tab === 'settings' && <SettingsView projectId={projectId} initialTarget={deployTarget} />}
     </>
   )

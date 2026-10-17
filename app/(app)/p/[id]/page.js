@@ -6,7 +6,7 @@ import { getCurrentState, maskState } from '@/lib/env'
 import ProjectView from './project-view'
 
 const ENVS = ['dev', 'staging', 'prod']
-const TABS = ['secrets', 'history', 'settings']
+const TABS = ['secrets', 'history', 'activity', 'settings']
 
 export default async function ProjectPage({ params, searchParams }) {
   const { id } = await params
@@ -14,6 +14,7 @@ export default async function ProjectPage({ params, searchParams }) {
   const env = ENVS.includes(sp?.env) ? sp.env : 'dev'
   const tab = TABS.includes(sp?.tab) ? sp.tab : 'secrets'
   const keyFilter = typeof sp?.key === 'string' ? sp.key : ''
+  const seqFilter = Number.isInteger(parseInt(sp?.seq, 10)) ? parseInt(sp.seq, 10) : null
 
   if (!isConfigured()) {
     return (
@@ -66,6 +67,7 @@ export default async function ProjectPage({ params, searchParams }) {
         env={env}
         tab={tab}
         keyFilter={keyFilter}
+        seqFilter={seqFilter}
         initialHeadSeq={headSeq}
         deployTarget={project.deploy_target ?? 'none'}
         initialEntries={maskState(state)}

@@ -57,10 +57,23 @@ export default function SecurityPage() {
         <Reveal>
           <div className="card">
             <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>Honest limits</h2>
-            <p style={{ margin: 0, color: 'var(--text-dim)', fontSize: 14 }}>
-              v1 uses platform-managed encryption; per-project keys are on the roadmap.
-              Saying the limit out loud builds more trust than a badge wall.
-            </p>
+            <div style={{ color: 'var(--text-dim)', fontSize: 14, display: 'grid', gap: 8 }}>
+              <p style={{ margin: 0 }}>
+                The database is encrypted at rest by the hosting platform. We do not do our
+                own envelope encryption yet, which means anyone with the project&apos;s
+                service_role key (and the platform operator) can read values. Masking is a
+                display rule, not encryption. Per-project keys are the documented upgrade
+                path, and they will ship before any claim otherwise.
+              </p>
+              <p style={{ margin: 0 }}>
+                Old versions and audit events are deleted after 90 days by a nightly purge;
+                the current state is never touched. Deleting a project deletes everything
+                with it. There is no backup of deleted secrets anywhere in v1.
+              </p>
+              <p style={{ margin: 0 }}>
+                Saying the limit out loud builds more trust than a badge wall.
+              </p>
+            </div>
           </div>
           <p style={{ marginTop: 32 }}>
             <a className="btn" href="/signup">Start free</a>

@@ -658,6 +658,10 @@ select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-co
 .tbl .num { font-variant-numeric: tabular-nums; }
 .bullets { letter-spacing: 2px; color: var(--text-dim); }
 
+/* Plaintext of a clicked-reveal secret: wraps long values so the table
+   stays intact, and keeps line breaks for multiline values (keys). */
+.reveal-val { overflow-wrap: anywhere; white-space: pre-wrap; }
+
 /* ---------- Auth split screen ---------- */
 
 .auth-split { display: flex; min-height: 100vh; }

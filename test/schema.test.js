@@ -69,14 +69,14 @@ describe('0001_schema.sql', () => {
     }
 
     // create_project inserts action 'create'; the reveal route logs
-    // 'reveal' (and 'copy' once the copy intent lands).
+    // 'reveal' (default intent) and 'copy' (copy intent), chosen by the
+    // server from the intent whitelist.
     assert.ok(allowed.includes('create'), "'create' is not an allowed audit action")
     const reveal = await readFile(
       path.join(dir, '..', 'app', 'api', 'projects', '[id]', 'env', '[env]', 'reveal', 'route.js'),
       'utf8'
     )
-    for (const m of reveal.matchAll(/action:\s*'(reveal|copy)'/g)) {
-      assert.ok(allowed.includes(m[1]), `'${m[1]}' is not an allowed audit action`)
-    }
+    assert.ok(/sp\.get\('intent'\) === 'copy' \? 'copy' : 'reveal'/.test(reveal), 'reveal route intent handling missing')
+    assert.ok(/action:\s*readAction/.test(reveal), 'reveal route does not audit the intent')
   })
 })

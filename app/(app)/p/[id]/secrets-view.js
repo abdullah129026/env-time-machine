@@ -1,7 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog, ConfirmChanges, Toast } from './ui'
+
+// 30 seconds: how long a copied secret stays in the clipboard before we
+// scrub it. Named here so the scrub timer and the toast stay in sync.
+const CLIPBOARD_TTL_MS = 30_000
 
 // Add and edit share one dialog. Values are multiline (private keys, certs).
 // Renames are stated plainly: a rename is delete plus add, and the key's
@@ -277,6 +281,9 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [updatedAt, setUpdatedAt] = useState({}) // key -> ISO timestamp of last change
+  const [revealed, setRevealed] = useState({}) // key -> plaintext, fetched on click only
+  const [notice, setNotice] = useState(null) // transient note: copy/scrub messages
+  const scrubTimers = useRef({})
 
   // Last-change timestamps come from the version history; no extra API
   // surface needed. One fetch per mount is enough for a table view.
@@ -305,6 +312,15 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
     const t = setTimeout(() => setToast(null), 10000)
     return () => clearTimeout(t)
   }, [toast])
+
+  // Plaintext is env-scoped: switching environments discards it, and
+  // unmounting clears any pending clipboard-scrub timers.
+  useEffect(() => {
+    setRevealed({})
+    return () => {
+      for (const t of Object.values(scrubTimers.current)) clearTimeout(t)
+    }
+  }, [projectId, env])
 
   async function reload() {
     setLoading(true)
@@ -427,6 +443,66 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
     }
   }
 
+  // plaintext lives in component state only, fetched on click (never
+  // hover), and is discarded the moment the row is re-masked. Both the
+  // fetch and the audit happen server-side: the intent query decides
+  // whether the route logs 'reveal' or 'copy'.
+  async function fetchPlaintext(key, intent) {
+    const res = await fetch(
+      `/api/projects/${projectId}/env/${env}/reveal?key=${encodeURIComponent(key)}&intent=${intent}`
+    )
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || 'could not read value')
+    return data.value
+  }
+
+  async function toggleReveal(key) {
+    if (revealed[key] != null) {
+      setRevealed((prev) => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+      return
+    }
+    setError('')
+    try {
+      const value = await fetchPlaintext(key, 'reveal')
+      setRevealed((prev) => ({ ...prev, [key]: value }))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  // Copy, then scrub: the clipboard is cleared after 30 seconds and the
+  // toast says so. The clear is best-effort (some browsers need focus),
+  // so a failed clear still tells the user to paste responsibly.
+  async function copyValue(key) {
+    setError('')
+    try {
+      const value = await fetchPlaintext(key, 'copy')
+      await navigator.clipboard.writeText(value)
+    } catch (e) {
+      setError(`copy failed: ${e.message}`)
+      return
+    }
+    clearTimeout(scrubTimers.current[key])
+    scrubTimers.current[key] = setTimeout(async () => {
+      let cleared = true
+      try {
+        await navigator.clipboard.writeText('')
+      } catch {
+        cleared = false
+      }
+      setNotice({
+        label: cleared
+          ? `Clipboard cleared: the copied value of ${key} is gone.`
+          : `Could not clear the clipboard automatically. Clear the copied value of ${key} yourself.`,
+      })
+    }, CLIPBOARD_TTL_MS)
+    setNotice({ label: `Copied, clipboard clears in 30 seconds` })
+  }
+
   const editingKey = dialog?.startsWith('edit:') ? dialog.slice(5) : null
 
   return (
@@ -515,12 +591,33 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
                       {e.key}
                     </a>
                   </td>
-                  <td className="mono"><span className="bullets">••••••••</span></td>
+                  <td className="mono">
+                    {revealed[e.key] != null ? (
+                      <span className="reveal-val">{revealed[e.key]}</span>
+                    ) : (
+                      <span className="bullets">••••••••</span>
+                    )}
+                  </td>
                   <td className="dim num" title={updatedAt[e.key] ? new Date(updatedAt[e.key]).toLocaleString() : ''}>
                     {relTime(updatedAt[e.key])}
                   </td>
                   <td className="tbl-actions">
                     <span className="row-actions">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => toggleReveal(e.key)}
+                        aria-pressed={revealed[e.key] != null}
+                      >
+                        {revealed[e.key] != null ? 'Hide' : 'Reveal'}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => copyValue(e.key)}
+                      >
+                        Copy
+                      </button>
                       <button
                         className="btn btn-ghost btn-sm"
                         type="button"
@@ -586,6 +683,8 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
       {toast && (
         <Toast label={toast.label} onUndo={toast.undo ? undoToast : null} onDismiss={() => setToast(null)} />
       )}
+
+      {notice && <Toast label={notice.label} onDismiss={() => setNotice(null)} />}
     </>
   )
 }

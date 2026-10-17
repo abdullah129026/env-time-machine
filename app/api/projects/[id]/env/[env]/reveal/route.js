@@ -6,9 +6,15 @@ export async function GET(request, { params }) {
   const g = await gate(id, env)
   if (g.error) return g.error
 
-  const key = new URL(request.url).searchParams.get('key')
+  const sp = new URL(request.url).searchParams
+  const key = sp.get('key')
   const keyErr = keyNameError(key)
   if (keyErr) return json({ error: keyErr }, 400)
+
+  // intent chooses the audit action: 'reveal' for a shown value, 'copy'
+  // for a copied one. The server decides, never the client: only these
+  // two literals are possible.
+  const readAction = sp.get('intent') === 'copy' ? 'copy' : 'reveal'
 
   try {
     const state = await getCurrentState(g.svc, id, env)
@@ -29,7 +35,7 @@ export async function GET(request, { params }) {
         environment_id: envRow?.id ?? null,
         actor_id: g.user.id,
         actor_email: g.user.email ?? '',
-        action: 'reveal',
+        action: readAction,
         target_key: key,
         details: {},
       })

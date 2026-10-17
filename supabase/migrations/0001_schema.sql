@@ -61,7 +61,7 @@ create table public.audit_events (
   actor_id uuid not null,
   actor_email text not null,
   action text not null
-    check (action in ('create', 'update', 'delete', 'reveal', 'copy', 'rollback', 'import')),
+    check (action in ('create', 'change', 'update', 'delete', 'reveal', 'copy', 'rollback', 'import')),
   target_key text,
   -- never contains values, only ids, counts, and messages
   details jsonb not null default '{}',

@@ -52,4 +52,31 @@ describe('0001_schema.sql', () => {
   it('environment names are limited to dev/staging/prod', () => {
     assert.ok(/check\s*\(\s*name in \('dev',\s*'staging',\s*'prod'\)\)/.test(sql), 'env name check missing')
   })
+
+  // Regression test for the 2026-10-17 bug: commit_version writes
+  // action = p_kind, so every value in the p_kind whitelist must also be
+  // in the audit_events action check, or ordinary writes roll back.
+  it('the audit action check accepts every action the code inserts', async () => {
+    const check = sql.match(/check\s*\(\s*action in \(([^)]+)\)\)/)
+    assert.ok(check, 'audit action check not found')
+    const allowed = check[1].split(',').map((s) => s.trim().replace(/^'|'$/g, ''))
+
+    const rpc = await readFile(path.join(dir, '..', 'supabase', 'migrations', '0002_rpc.sql'), 'utf8')
+    const kinds = rpc.match(/p_kind not in \(([^)]+)\)/)
+    assert.ok(kinds, 'commit_version p_kind whitelist not found')
+    for (const k of kinds[1].split(',').map((s) => s.trim().replace(/^'|'$/g, ''))) {
+      assert.ok(allowed.includes(k), `p_kind '${k}' is not an allowed audit action`)
+    }
+
+    // create_project inserts action 'create'; the reveal route logs
+    // 'reveal' (and 'copy' once the copy intent lands).
+    assert.ok(allowed.includes('create'), "'create' is not an allowed audit action")
+    const reveal = await readFile(
+      path.join(dir, '..', 'app', 'api', 'projects', '[id]', 'env', '[env]', 'reveal', 'route.js'),
+      'utf8'
+    )
+    for (const m of reveal.matchAll(/action:\s*'(reveal|copy)'/g)) {
+      assert.ok(allowed.includes(m[1]), `'${m[1]}' is not an allowed audit action`)
+    }
+  })
 })

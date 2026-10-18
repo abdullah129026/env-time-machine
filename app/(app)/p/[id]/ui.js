@@ -33,6 +33,7 @@ export function ConfirmChanges({ title, changes, note, confirmLabel = 'Confirm',
       <p>
         {total} key{total === 1 ? '' : 's'} will change:
       </p>
+      <div className="tbl-scroll">
       <table className="tbl">
         <tbody>
           {rows.map((r) => (
@@ -45,6 +46,7 @@ export function ConfirmChanges({ title, changes, note, confirmLabel = 'Confirm',
           ))}
         </tbody>
       </table>
+      </div>
       {note && <p className="hint">{note}</p>}
       {error && <p className="error-text">{error}</p>}
       <div className="dialog-actions">

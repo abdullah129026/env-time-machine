@@ -72,6 +72,7 @@ export default function PricingPage() {
           <p style={{ color: 'var(--text-dim)', textAlign: 'center', margin: '0 0 8px' }}>
             Public pricing as of 2026. Verify on each vendor&apos;s site before deciding.
           </p>
+          <div className="tbl-scroll">
           <table className="compare-tbl">
             <thead>
               <tr>
@@ -92,6 +93,7 @@ export default function PricingPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Reveal>
       </div>
     </div>

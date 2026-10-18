@@ -120,6 +120,7 @@ export default function ActivityView({ projectId }) {
       </div>
 
       {events === null ? (
+        <div className="tbl-scroll">
         <table className="tbl" aria-label="Loading activity">
           <tbody>
             {[0, 1, 2, 3, 4].map((i) => (
@@ -131,9 +132,11 @@ export default function ActivityView({ projectId }) {
             ))}
           </tbody>
         </table>
+        </div>
       ) : events.length === 0 ? (
         <p className="hint">No activity matches these filters.</p>
       ) : (
+        <div className="tbl-scroll">
         <table className="tbl">
           <thead>
             <tr>
@@ -162,6 +165,7 @@ export default function ActivityView({ projectId }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </>
   )

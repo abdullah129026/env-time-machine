@@ -960,6 +960,42 @@ select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-co
   .landing-footer .cols { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Responsive floor (PLAN section 4): desktop-first is fine for a dev tool,
+   but under 768px the sidebar collapses into a topbar nav row, tables scroll
+   horizontally instead of squeezing, and page headers wrap. Diff rows already
+   stack via flex-wrap. */
+.tbl-scroll { overflow-x: auto; }
+.mobile-nav { display: none; }
+
+@media (max-width: 768px) {
+  .shell { display: block; }
+  .sidebar { display: none; }
+  .main { padding: 20px 16px; max-width: none; }
+  .topbar { flex-wrap: wrap; height: auto; }
+  .mobile-nav {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-basis: 100%;
+    order: -1;
+    margin: 0 -16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .mobile-nav a { color: var(--text-dim); font-size: 14px; flex-shrink: 0; }
+  .mobile-nav a:hover { color: var(--text); text-decoration: none; }
+  .mobile-brand { font-weight: 700; color: var(--text); font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+  .mobile-brand:hover { text-decoration: none; }
+  .switch-wrap { flex: 1 1 auto; min-width: 120px; max-width: 200px; margin-left: auto; }
+  .switch-wrap > div { margin-bottom: 0 !important; }
+  .tbl-scroll > .tbl, .tbl-scroll > .compare-tbl { min-width: 600px; }
+  .crumbs { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .cmdk-btn .cmdk-label { display: none; }
+  .page-head { flex-wrap: wrap; }
+}
+
 /* Reduced motion: reveals render in final state, loops show end frame,
    shimmer and lifts off. The Reveal component also renders immediately. */
 @media (prefers-reduced-motion: reduce) {

@@ -175,6 +175,7 @@ function ImportPanel({ projectId, env, onApplied }) {
               invalid key names, cannot import: {(preview.invalid ?? []).join(', ')}
             </p>
           )}
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead>
               <tr>
@@ -221,6 +222,7 @@ function ImportPanel({ projectId, env, onApplied }) {
               ))}
             </tbody>
           </table>
+          </div>
           <p className="hint">
             Replace semantics: keys absent from the paste are marked deleted. Unchecked keys are
             left untouched. One version is written per import.
@@ -547,6 +549,7 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
           </div>
 
           {loading ? (
+            <div className="tbl-scroll">
             <table className="tbl" aria-label="Loading variables">
               <thead>
                 <tr>
@@ -567,7 +570,9 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead>
               <tr>
@@ -639,6 +644,7 @@ export default function SecretsView({ projectId, env, initialEntries, onMutated 
               ))}
             </tbody>
           </table>
+          </div>
           )}
           {!loading && visible.length === 0 && <p className="hint">No keys match the filter.</p>}
         </>

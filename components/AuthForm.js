@@ -114,6 +114,10 @@ export default function AuthForm({ mode }) {
           'Send magic link'
         )}
       </button>
+      <p className="hint" style={{ marginTop: 12, textAlign: 'center' }}>
+        Links come from our email provider and are rate-limited. If nothing
+        arrives, check spam and wait a minute before resending.
+      </p>
     </form>
   )
 }

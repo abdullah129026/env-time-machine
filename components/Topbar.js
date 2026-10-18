@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { ProjectSwitcher } from '@/components/SidebarExtras'
 
 // Fuzzy match: every query char appears in order in the target.
 function fuzzy(q, target) {
@@ -149,6 +150,21 @@ export default function Topbar({ projects, email }) {
   return (
     <>
       <header className="topbar">
+        {/* Mobile nav: the sidebar is hidden under 768px, so this row
+            (desktop: display none) carries brand, links, and the project
+            switcher instead. */}
+        <nav className="mobile-nav" aria-label="Primary">
+          <a className="mobile-brand" href="/">
+            <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: 5, background: 'var(--accent)' }} />
+            env time machine
+          </a>
+          <a href="/">Projects</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/security">Security</a>
+          <div className="switch-wrap">
+            <ProjectSwitcher projects={projects} currentId={projId} />
+          </div>
+        </nav>
         <nav className="crumbs" aria-label="Breadcrumb">
           {projId ? (
             <>
@@ -178,7 +194,7 @@ export default function Topbar({ projects, email }) {
         )}
         <span className="spacer" />
         <button type="button" className="cmdk-btn" onClick={() => setPalOpen(true)}>
-          <span aria-hidden="true">⌕</span> Search <span className="kbd">⌘K</span>
+          <span aria-hidden="true">⌕</span> <span className="cmdk-label">Search </span><span className="kbd">⌘K</span>
         </button>
         {email && <span className="avatar" title={email}>{(email[0] ?? '?').toUpperCase()}</span>}
       </header>

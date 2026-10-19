@@ -986,6 +986,8 @@ select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-co
   }
   .mobile-nav a { color: var(--text-dim); font-size: 14px; flex-shrink: 0; }
   .mobile-nav a:hover { color: var(--text); text-decoration: none; }
+  .mobile-signout { color: var(--text-dim); font-size: 14px; flex-shrink: 0; background: none; border: none; cursor: pointer; font: inherit; padding: 0; }
+  .mobile-signout:hover { color: var(--text); }
   .mobile-brand { font-weight: 700; color: var(--text); font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
   .mobile-brand:hover { text-decoration: none; }
   .switch-wrap { flex: 1 1 auto; min-width: 120px; max-width: 200px; margin-left: auto; }

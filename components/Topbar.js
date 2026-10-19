@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ProjectSwitcher } from '@/components/SidebarExtras'
+import { browserClient } from '@/lib/supabase'
 
 // Fuzzy match: every query char appears in order in the target.
 function fuzzy(q, target) {
@@ -112,6 +112,7 @@ function CmdK({ open, onClose, projects }) {
 export default function Topbar({ projects, email }) {
   const [palOpen, setPalOpen] = useState(false)
   const [projName, setProjName] = useState('')
+  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const projId = pathname?.startsWith('/p/') ? pathname.split('/')[2] : null
@@ -147,6 +148,15 @@ export default function Topbar({ projects, email }) {
 
   const envHref = (e) => `/p/${projId}?env=${e}&tab=${tab}`
 
+  // The sidebar user menu is hidden under 768px, so the mobile nav gets
+  // its own sign-out. Same sign-out as the sidebar: clear the session,
+  // back to login.
+  async function signOut() {
+    await browserClient()?.auth.signOut().catch(() => {})
+    router.push('/login')
+    router.refresh()
+  }
+
   return (
     <>
       <header className="topbar">
@@ -164,6 +174,11 @@ export default function Topbar({ projects, email }) {
           <div className="switch-wrap">
             <ProjectSwitcher projects={projects} currentId={projId} />
           </div>
+          {email && (
+            <button type="button" className="mobile-signout" onClick={signOut}>
+              Sign out
+            </button>
+          )}
         </nav>
         <nav className="crumbs" aria-label="Breadcrumb">
           {projId ? (

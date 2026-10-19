@@ -28,12 +28,11 @@ export default async function Home() {
   if (!user) redirect('/login')
 
   const svc = serviceClient()
-  const { data: memberships } = await svc
-    .from('project_members')
-    .select('project_id')
-    .eq('user_id', user.id)
+  const { data: memberships } = svc
+    ? await svc.from('project_members').select('project_id').eq('user_id', user.id)
+    : { data: [] }
   const ids = (memberships ?? []).map((m) => m.project_id)
-  const { data: projects } = ids.length
+  const { data: projects } = svc && ids.length
     ? await svc.from('projects').select('id, name, created_at').in('id', ids).order('created_at', { ascending: false })
     : { data: [] }
 
@@ -44,6 +43,7 @@ export default async function Home() {
     const user = await currentUser()
     if (!user) redirect('/login')
     const svc = serviceClient()
+    if (!svc) throw new Error('Server is not configured. Please try again later.')
     const { data: projectId, error } = await svc.rpc('create_project', {
       p_name: name,
       p_owner_id: user.id,

@@ -17,18 +17,20 @@ export default async function AppLayout({ children }) {
     email = user?.email ?? ''
     if (user) {
       const svc = serviceClient()
-      const { data: memberships } = await svc
-        .from('project_members')
-        .select('project_id')
-        .eq('user_id', user.id)
-      const ids = (memberships ?? []).map((m) => m.project_id)
-      if (ids.length) {
-        const { data: rows } = await svc
-          .from('projects')
-          .select('id, name')
-          .in('id', ids)
-          .order('created_at', { ascending: false })
-        projects = rows ?? []
+      if (svc) {
+        const { data: memberships } = await svc
+          .from('project_members')
+          .select('project_id')
+          .eq('user_id', user.id)
+        const ids = (memberships ?? []).map((m) => m.project_id)
+        if (ids.length) {
+          const { data: rows } = await svc
+            .from('projects')
+            .select('id, name')
+            .in('id', ids)
+            .order('created_at', { ascending: false })
+          projects = rows ?? []
+        }
       }
     }
   }

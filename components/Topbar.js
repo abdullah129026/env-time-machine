@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { browserClient } from '@/lib/supabase'
+import { ProjectSwitcher } from './SidebarExtras'
 
 // Fuzzy match: every query char appears in order in the target.
 function fuzzy(q, target) {
